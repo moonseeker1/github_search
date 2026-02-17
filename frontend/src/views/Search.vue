@@ -60,7 +60,7 @@
               {{ formatNumber(repo.stars) }}
             </span>
             <span class="meta-item">
-              <el-icon><Fork /></el-icon>
+              <el-icon><Share /></el-icon>
               {{ formatNumber(repo.forks) }}
             </span>
           </div>
@@ -83,7 +83,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { Search, Star, Fork } from '@element-plus/icons-vue'
+import { Search, Star, Share } from '@element-plus/icons-vue'
 import request from '../utils/request'
 
 const router = useRouter()
