@@ -8,6 +8,7 @@ import com.githubsearch.entity.Repository;
 import com.githubsearch.mapper.RepositoryMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Search Service
@@ -33,10 +35,46 @@ public class SearchService {
     @Autowired
     private RepositoryMapper repositoryMapper;
 
+    // Simple in-memory cache
+    private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
+    private static final long CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+    private static class CacheEntry {
+        Object data;
+        long timestamp;
+
+        CacheEntry(Object data) {
+            this.data = data;
+            this.timestamp = System.currentTimeMillis();
+        }
+
+        boolean isValid() {
+            return System.currentTimeMillis() - timestamp < CACHE_TTL;
+        }
+    }
+
+    private Object getFromCache(String key) {
+        CacheEntry entry = cache.get(key);
+        if (entry != null && entry.isValid()) {
+            return entry.data;
+        }
+        cache.remove(key);
+        return null;
+    }
+
+    private void putToCache(String key, Object value) {
+        cache.put(key, new CacheEntry(value));
+    }
+
     /**
      * Search repositories from GitHub
      */
     public Map<String, Object> searchRepositories(String query, String language, int page, int perPage) throws IOException {
+        String cacheKey = "search:" + query + ":" + language + ":" + page;
+        Object cached = getFromCache(cacheKey);
+        if (cached != null) {
+            return (Map<String, Object>) cached;
+        }
         JSONObject result = gitHubClient.searchRepositories(query, language, page, perPage);
 
         Map<String, Object> response = new HashMap<>();
@@ -65,6 +103,7 @@ public class SearchService {
         }
 
         response.put("items", items);
+        putToCache(cacheKey, response);
         return response;
     }
 
@@ -72,6 +111,12 @@ public class SearchService {
      * Get repository details
      */
     public Map<String, Object> getRepositoryDetails(String owner, String repo) throws IOException {
+        String cacheKey = "repo:" + owner + "/" + repo;
+        Object cached = getFromCache(cacheKey);
+        if (cached != null) {
+            return (Map<String, Object>) cached;
+        }
+
         JSONObject result = gitHubClient.getRepository(owner, repo);
 
         Map<String, Object> response = new HashMap<>();
@@ -108,6 +153,7 @@ public class SearchService {
             response.put("readme", null);
         }
 
+        putToCache(cacheKey, response);
         return response;
     }
 
@@ -115,6 +161,12 @@ public class SearchService {
      * Get repository file structure
      */
     public List<Map<String, Object>> getFileStructure(String owner, String repo, String path) throws IOException {
+        String cacheKey = "files:" + owner + "/" + repo + ":" + path;
+        Object cached = getFromCache(cacheKey);
+        if (cached != null) {
+            return (List<Map<String, Object>>) cached;
+        }
+
         JSONArray contents = gitHubClient.getContents(owner, repo, path);
 
         List<Map<String, Object>> files = new ArrayList<>();
@@ -131,6 +183,7 @@ public class SearchService {
             }
         }
 
+        putToCache(cacheKey, files);
         return files;
     }
 
@@ -138,6 +191,12 @@ public class SearchService {
      * Get file content
      */
     public Map<String, Object> getFileContent(String owner, String repo, String path) throws IOException {
+        String cacheKey = "content:" + owner + "/" + repo + ":" + path;
+        Object cached = getFromCache(cacheKey);
+        if (cached != null) {
+            return (Map<String, Object>) cached;
+        }
+
         String content = gitHubClient.getFileContent(owner, repo, path);
 
         Map<String, Object> response = new HashMap<>();
@@ -145,6 +204,7 @@ public class SearchService {
         response.put("content", content);
         response.put("language", getLanguageFromPath(path));
 
+        putToCache(cacheKey, response);
         return response;
     }
 

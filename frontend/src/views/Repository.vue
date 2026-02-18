@@ -14,7 +14,7 @@
           <span>{{ formatNumber(repo.stars) }}</span>
         </div>
         <div class="stat">
-          <el-icon><Fork /></el-icon>
+          <el-icon><Share /></el-icon>
           <span>{{ formatNumber(repo.forks) }}</span>
         </div>
         <div class="stat" v-if="repo.language">
@@ -102,7 +102,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { Star, Fork, Link, Folder, Document } from '@element-plus/icons-vue'
+import { Star, Share, Link, Folder, Document } from '@element-plus/icons-vue'
 import { marked } from 'marked'
 import request from '../utils/request'
 

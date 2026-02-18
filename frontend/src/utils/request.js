@@ -6,7 +6,7 @@ const request = axios.create({
   timeout: 60000
 })
 
-request.interceptors.response(
+request.interceptors.response.use(
   response => {
     const res = response.data
     if (res.code !== 200) {
